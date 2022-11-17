@@ -14,11 +14,11 @@
 // name of the label object representing a time remaining
 #define TIME_LABEL_NAME "Time Label"
 
-input int inp_label_xdistance = 30;			// x distance from upper right corner
-input int inp_label_ydistance = 50;				// y distance from upper right corner
-input int inp_label_fontsize = 23;				// font size of label
-input color inp_label_color = clrBlack;			// color of label
-input bool inp_label_hidden = false;			// show or hide the time remaining label (true = hide)
+input int inp_label_xdistance = 30;			// X distance from upper right corner
+input int inp_label_ydistance = 50;				// Y distance from upper right corner
+input int inp_label_fontsize = 23;				// Font size of the label
+input color inp_label_color = clrBlack;			// Color of the label
+input bool inp_label_hidden = false;			// Show or hide the label (true = hide)
 
 bool is_chart_period_changed_situation = false;
 bool is_process_deinited_major = false;
