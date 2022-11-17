@@ -330,6 +330,11 @@ void ComputeRemainingTime(datetime t) {
 
 		ObjectSetString(0, TIME_LABEL_NAME, OBJPROP_TEXT, LeadingZero(r_hour) + ":" + LeadingZero(r_min) + ":" + LeadingZero(r_sec));
 	}
+
+	// force redrawing of main chart
+	// usually it would be called after chaning object's properties, but it didn't work for us thus we force it here
+	// to fix an issue of time remaining not updated every second (every elapse of timer)
+	ChartRedraw(0);
 }
 
 void OnTimer() {
