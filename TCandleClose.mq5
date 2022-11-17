@@ -7,6 +7,10 @@
 #property link      "https://wasin.io"
 #property version   "1.00"
 
+#property indicator_chart_window
+#property indicator_buffers 0
+#property indicator_plots 0
+
 // name of the label object representing a time remaining
 #define TIME_LABEL_NAME "Time Label"
 
@@ -63,7 +67,7 @@ void OnDeinit(const int reason) {
 	bool is_to_close = false;
 	if (reason == REASON_PROGRAM ||
 		reason == REASON_REMOVE ||
-		reason == REASON_RECOMPILE ||	
+		reason == REASON_RECOMPILE ||
 		reason == REASON_CHARTCLOSE ||
 		reason == REASON_ACCOUNT ||
 		reason == REASON_CLOSE) {
@@ -81,9 +85,9 @@ void OnDeinit(const int reason) {
 		is_chart_period_changed_situation = true;
 
 		// re-calculate time remaining
-		// CAVEAT: this introduces some delay in immediate showing the updated text of label object on the chart as
-		// ObjectSetString is async call, and we cannot force sync call via ObjectGetString() here as it still needs
-		// to wait for all commands in the queue to be finished first.
+		// CAVEAT (if use this program as EA) : this introduces some delay in immediate showing the updated text of label
+		// object on the chart as ObjectSetString is async call, and we cannot force sync call via ObjectGetString()
+		// here as it still needs to wait for all commands in the queue to be finished first.
 		//
 		// So users would see the old remaining time from previous chart's period for a short time before it updates.
 		ComputeRemainingTime(TimeCurrent());
@@ -326,4 +330,12 @@ void ComputeRemainingTime(datetime t) {
 void OnTimer() {
 	latest_sync_time++;
 	ComputeRemainingTime(latest_sync_time);
+}
+
+int OnCalculate(const int rates_total,
+				 const int prev_calculated,
+				 const int begin,
+				 const double& price[]) {
+	// empty, indicator type of program requires to have this function defined
+	return rates_total;
 }

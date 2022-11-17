@@ -1,6 +1,6 @@
 # TCandleClose
 
-MT5 EA (no auto-trade capability).
+MT5 Indicator
 It shows the remaining time until candle closes on the upper right corner of the
 chart window with some user's input configurations.
 
