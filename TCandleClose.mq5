@@ -18,6 +18,7 @@ input int inp_label_xdistance = 30;			// x distance from upper right corner
 input int inp_label_ydistance = 50;				// y distance from upper right corner
 input int inp_label_fontsize = 23;				// font size of label
 input color inp_label_color = clrBlack;			// color of label
+input bool inp_label_hidden = false;			// show or hide the time remaining label (true = hide)
 
 bool is_chart_period_changed_situation = false;
 bool is_process_deinited_major = false;
@@ -42,6 +43,11 @@ void SetupLabelObject(string obj_name) {
 	ObjectSetInteger(0, obj_name, OBJPROP_FONTSIZE, inp_label_fontsize);
 	ObjectSetInteger(0, obj_name, OBJPROP_COLOR, inp_label_color);
 	ObjectSetInteger(0, obj_name, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
+	// there is no property to show/hide an object, we use visiblity on timeframes to solve it
+	if (inp_label_hidden)
+		ObjectSetInteger(0, obj_name, OBJPROP_TIMEFRAMES, OBJ_NO_PERIODS);
+	else
+		ObjectSetInteger(0, obj_name, OBJPROP_TIMEFRAMES, OBJ_ALL_PERIODS);
 	// only update text when it is newly created
 	if (!is_chart_period_changed_situation)
 		ObjectSetString(0, obj_name, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
@@ -103,6 +109,10 @@ void OnDeinit(const int reason) {
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_YDISTANCE, inp_label_ydistance);
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_FONTSIZE, inp_label_fontsize);
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_COLOR, inp_label_color);
+		if (inp_label_hidden)
+			ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_TIMEFRAMES, OBJ_NO_PERIODS);
+		else
+			ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_TIMEFRAMES, OBJ_ALL_PERIODS);
 	}
 }
 
