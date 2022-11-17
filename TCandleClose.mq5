@@ -20,6 +20,7 @@ input int inp_label_fontsize = 23;				// font size of label
 input color inp_label_color = clrBlack;			// color of label
 
 bool is_chart_period_changed_situation = false;
+bool is_process_deinited_major = false;
 
 // latest time will be synced every time inside OnInit() or after various events
 // so for this case we don't have to sync the time periodically as we can sync time against the broker server once
@@ -50,10 +51,15 @@ void SetupLabelObject(string obj_name) {
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit() {
+	static bool is_first_time_call = true;
 	latest_sync_time = TimeCurrent();
 
 	// 1 second fixed interval for update time remaining
-	EventSetTimer(1);
+	if (is_process_deinited_major || is_first_time_call) {
+		is_first_time_call = false;
+		is_process_deinited_major = false;
+		EventSetTimer(1);
+	}
 
 	SetupLabelObject(TIME_LABEL_NAME);
 	
@@ -64,7 +70,6 @@ int OnInit() {
 //| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
-	bool is_to_close = false;
 	if (reason == REASON_PROGRAM ||
 		reason == REASON_REMOVE ||
 		reason == REASON_RECOMPILE ||
@@ -77,7 +82,7 @@ void OnDeinit(const int reason) {
 		// kill receiving event timers
 		EventKillTimer();
 
-		is_to_close = true;
+		is_process_deinited_major = true;
 		is_chart_period_changed_situation = false;
 	}
 
@@ -93,7 +98,7 @@ void OnDeinit(const int reason) {
 		ComputeRemainingTime(TimeCurrent());
 	}	
 
-	if (!is_to_close && reason == REASON_PARAMETERS) {
+	if (!is_process_deinited_major && reason == REASON_PARAMETERS) {
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_XDISTANCE, inp_label_xdistance);
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_YDISTANCE, inp_label_ydistance);
 		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_FONTSIZE, inp_label_fontsize);
