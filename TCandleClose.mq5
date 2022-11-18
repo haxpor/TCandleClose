@@ -58,6 +58,7 @@ void SetupLabelObject(string obj_name) {
 //+------------------------------------------------------------------+
 int OnInit() {
 	static bool is_first_time_call = true;
+	// use TimeCurrent() to receive last time as shown in market watch, and not performed anything on client terminal
 	latest_sync_time = TimeCurrent();
 
 	// 1 second fixed interval for update time remaining
@@ -238,35 +239,46 @@ bool DayOfWeekEnum(int dow, ENUM_DAY_OF_WEEK& out_dow) {
 }
 
 /**
-  Compare two MqlDateTime only for its hour, minute, and second component.
-
-  Return
-  1 if dt1 > dt2
-  0 if dt1 == dt2
-  -1 if dt1 < dt2
+  Hour-Minute-Second comparator functor for MqlDateTime.
 **/
-int CompareMqlDateTime_HMS(const MqlDateTime& dt1, const MqlDateTime& dt2) {
-	if (dt1.hour < dt2.hour &&
-		dt1.min < dt2.min &&
-		dt1.sec < dt2.sec) {
-		return 1;
+struct MqlDateTimeHMSComparator {
+	// mql5 doesn't allow empty struct to be defined
+	char _dummy;
+	
+	bool compare_lt(const MqlDateTime& dt1, const MqlDateTime& dt2) {
+		return dt1.hour < dt2.hour ||
+			   (dt1.hour == dt2.hour && dt1.min < dt2.min) ||
+			   (dt1.hour == dt2.hour && dt1.min == dt2.min && dt1.sec < dt2.sec);
 	}
-	else if (dt1.hour == dt2.hour &&
-			 dt1.min == dt2.min &&
-			 dt1.sec == dt2.sec) {
-		return 0;
+
+	bool compare_gt(const MqlDateTime& dt1, const MqlDateTime& dt2) {
+		return dt1.hour > dt2.hour ||
+			   (dt1.hour == dt2.hour && dt1.min > dt2.min) ||
+			   (dt1.hour == dt2.hour && dt1.min == dt2.min && dt1.sec > dt2.sec);
 	}
-	else {
-		return -1;
+
+	bool compare_lt_or_eq(const MqlDateTime& dt1, const MqlDateTime& dt2) {
+		return dt1.hour <= dt2.hour ||
+			   (dt1.hour == dt2.hour && dt1.min <= dt2.min) ||
+			   (dt1.hour == dt2.hour && dt1.min == dt2.min && dt1.sec <= dt2.sec);
 	}
-}
+
+	bool compare_gt_or_eq(const MqlDateTime& dt1, const MqlDateTime& dt2) {
+		return dt1.hour >= dt2.hour ||
+			   (dt1.hour == dt2.hour && dt1.min >= dt2.min) ||
+			   (dt1.hour == dt2.hour && dt1.min == dt2.min && dt1.sec >= dt2.sec);
+	}
+
+	bool compare_eq(const MqlDateTime& dt1, const MqlDateTime& dt2) {
+		return dt1.hour == dt2.hour && dt1.min == dt2.min && dt1.sec == dt2.sec;
+	}
+};
 
 // Compute remaining time from the input of datetime.
 void ComputeRemainingTime(datetime t) {
 	MqlDateTime time_st;
 	if (!TimeToStruct(t, time_st)) {
 		Print("Error TimeToStruct()");
-		// skip this cycle
 		return;
 	}
 
@@ -276,13 +288,15 @@ void ComputeRemainingTime(datetime t) {
 	ENUM_DAY_OF_WEEK dow;
 
 	if (!DayOfWeekEnum(time_st.day_of_week, dow)) {
-		Print("Error getting day of week via DayOfWeek");
+		Print("Error getting day of week via DayOfWeek()");
 		return;
 	}
 
+	// NOTE: this function returns error if query for non-operating hours of target instruments. As our approach bases
+	// on using TimeCurrent(), it won't ever return non-operating date/time, so the case of returning error helps us
+	// in detecting market closed.
 	if (!SymbolInfoSessionTrade(Symbol(), dow, 0, trade_session_from, trade_session_to)) {
-		Print("Error getting info from symbol");
-		// skip this cycle
+		Print("Error getting session info from symbol");
 		return;
 	}
 	if (!TimeToStruct(trade_session_from, trade_session_from_dt)) {
@@ -294,10 +308,12 @@ void ComputeRemainingTime(datetime t) {
 		return;
 	}
 
-	if (CompareMqlDateTime_HMS(time_st, trade_session_from_dt) == -1 &&
-		CompareMqlDateTime_HMS(time_st, trade_session_to_dt) == 1) {
-		Print("Market is closed");
-		// outside of market hours (market closed)
+	MqlDateTimeHMSComparator mdt_comparator;
+	if (mdt_comparator.compare_lt(time_st, trade_session_from_dt) || mdt_comparator.compare_gt(time_st, trade_session_to_dt)) {
+		// not necessary to print anything here as it's outside of this indicator's responsibility, just hide the label
+		// by emptying the text
+		ObjectSetString(0, TIME_LABEL_NAME, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
+		ChartRedraw(0);
 		return;
 	}
 
