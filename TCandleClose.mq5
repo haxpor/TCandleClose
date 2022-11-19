@@ -5,7 +5,7 @@
 //+------------------------------------------------------------------+
 #property copyright "MIT 2022, haxpor."
 #property link      "https://wasin.io"
-#property version   "1.05"
+#property version   "1.06"
 
 #property indicator_chart_window
 #property indicator_buffers 0
