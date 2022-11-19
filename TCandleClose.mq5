@@ -257,7 +257,7 @@ void ComputeRemainingTime(datetime t) {
 	// instruments. As our approach bases on using TimeCurrent(), it won't ever return non-operating date/time, so the
 	// case of returning error helps us in detecting market closed.
 	if (!SymbolInfoSessionTrade(Symbol(), dow, 0, trade_session_from, trade_session_to)) {
-		Print("Error getting session info from symbol");
+		// not print anything to not spam log message on user side
 		return;
 	}
 	if (!TimeToStruct(trade_session_from, trade_session_from_dt)) {
