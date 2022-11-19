@@ -20,8 +20,7 @@ input int inp_label_fontsize = 23;				// Font size of the label
 input color inp_label_color = clrBlack;			// Color of the label
 input bool inp_label_hidden = false;			// Show or hide the label (true = hide)
 
-bool is_chart_period_changed_situation = false;
-bool is_process_deinited_major = false;
+bool is_prev_detected_market_close = false;
 
 // latest time will be synced every time inside OnInit() or after various events
 // so for this case we don't have to sync the time periodically as we can sync time against the broker server once
@@ -49,26 +48,19 @@ void SetupLabelObject(string obj_name) {
 	else
 		ObjectSetInteger(0, obj_name, OBJPROP_TIMEFRAMES, OBJ_ALL_PERIODS);
 	// only update text when it is newly created
-	if (!is_chart_period_changed_situation)
-		ObjectSetString(0, obj_name, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
+	ObjectSetString(0, obj_name, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
 }
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit() {
-	static bool is_first_time_call = true;
 	// use TimeCurrent() to receive last time as shown in market watch, and not performed anything on client terminal
 	latest_sync_time = TimeCurrent();
 
 	// 1 second fixed interval for update time remaining
-	if (is_process_deinited_major || is_first_time_call) {
-		is_first_time_call = false;
-		is_process_deinited_major = false;
-		EventSetTimer(1);
-	}
-
 	SetupLabelObject(TIME_LABEL_NAME);
+	EventSetTimer(1);
 	
 	return(INIT_SUCCEEDED);
 }
@@ -77,44 +69,10 @@ int OnInit() {
 //| Expert deinitialization function                                 |
 //+------------------------------------------------------------------+
 void OnDeinit(const int reason) {
-	if (reason == REASON_PROGRAM ||
-		reason == REASON_REMOVE ||
-		reason == REASON_RECOMPILE ||
-		reason == REASON_CHARTCLOSE ||
-		reason == REASON_ACCOUNT ||
-		reason == REASON_CLOSE) {
-		// delete label object only when user doesn't change chart's timeframe
-		ObjectDelete(0, TIME_LABEL_NAME);
+	ObjectDelete(0, TIME_LABEL_NAME);
+	EventKillTimer();
 
-		// kill receiving event timers
-		EventKillTimer();
-
-		is_process_deinited_major = true;
-		is_chart_period_changed_situation = false;
-	}
-
-	if (reason == REASON_CHARTCHANGE) {
-		is_chart_period_changed_situation = true;
-
-		// re-calculate time remaining
-		// CAVEAT (if use this program as EA) : this introduces some delay in immediate showing the updated text of label
-		// object on the chart as ObjectSetString is async call, and we cannot force sync call via ObjectGetString()
-		// here as it still needs to wait for all commands in the queue to be finished first.
-		//
-		// So users would see the old remaining time from previous chart's period for a short time before it updates.
-		ComputeRemainingTime(TimeCurrent());
-	}	
-
-	if (!is_process_deinited_major && reason == REASON_PARAMETERS) {
-		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_XDISTANCE, inp_label_xdistance);
-		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_YDISTANCE, inp_label_ydistance);
-		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_FONTSIZE, inp_label_fontsize);
-		ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_COLOR, inp_label_color);
-		if (inp_label_hidden)
-			ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_TIMEFRAMES, OBJ_NO_PERIODS);
-		else
-			ObjectSetInteger(0, TIME_LABEL_NAME, OBJPROP_TIMEFRAMES, OBJ_ALL_PERIODS);
-	}
+	is_prev_detected_market_close = false;
 }
 
 /**
@@ -276,12 +234,15 @@ struct MqlDateTimeHMSComparator {
 
 // Compute remaining time from the input of datetime.
 void ComputeRemainingTime(datetime t) {
+	// Phase 1: Checking for market close
 	MqlDateTime time_st;
-	if (!TimeToStruct(t, time_st)) {
+	// advance ahead by one second as we base on using TimeCurrent() which only return latest receipt of date/time
+	// of the quote, it doesn't return non-operating hours. So we can check for market close ahead by 1 sec from the
+	// current valid trading session minute.
+	if (!TimeToStruct(++t, time_st)) {	
 		Print("Error TimeToStruct()");
 		return;
 	}
-
 	// check if market closed, so there should be no calculations
 	datetime trade_session_from, trade_session_to;
 	MqlDateTime trade_session_from_dt, trade_session_to_dt;
@@ -292,9 +253,9 @@ void ComputeRemainingTime(datetime t) {
 		return;
 	}
 
-	// NOTE: this function returns error if query for non-operating hours of target instruments. As our approach bases
-	// on using TimeCurrent(), it won't ever return non-operating date/time, so the case of returning error helps us
-	// in detecting market closed.
+	// NOTE: this function returns error if query for non-operating "day" of target instruments i.e. weekends for most
+	// instruments. As our approach bases on using TimeCurrent(), it won't ever return non-operating date/time, so the
+	// case of returning error helps us in detecting market closed.
 	if (!SymbolInfoSessionTrade(Symbol(), dow, 0, trade_session_from, trade_session_to)) {
 		Print("Error getting session info from symbol");
 		return;
@@ -310,13 +271,25 @@ void ComputeRemainingTime(datetime t) {
 
 	MqlDateTimeHMSComparator mdt_comparator;
 	if (mdt_comparator.compare_lt(time_st, trade_session_from_dt) || mdt_comparator.compare_gt(time_st, trade_session_to_dt)) {
-		// not necessary to print anything here as it's outside of this indicator's responsibility, just hide the label
-		// by emptying the text
-		ObjectSetString(0, TIME_LABEL_NAME, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
-		ChartRedraw(0);
+		// only empty when necessary to not overwhelming finding a particular object which is expensive if do it frequently
+		if (!is_prev_detected_market_close) {
+			// not necessary to print anything here as it's outside of this indicator's responsibility, just hide the label
+			// by emptying the text
+			ObjectSetString(0, TIME_LABEL_NAME, OBJPROP_TEXT, " ");		// at least has to be space to not let it have "Label" text automatically
+			ChartRedraw(0);
+		}
+		is_prev_detected_market_close = true;
 		return;
 	}
+	else {
+		is_prev_detected_market_close = false;
+	}
 
+	// Phase 2: Updating time remaining
+	if (!TimeToStruct(t, time_st)) {
+		Print("Error TimeToStruct()");
+		return;
+	}
 	// convert current time to seconds
 	int total_secs = time_st.hour*60*60 + time_st.min*60 + time_st.sec;
 
