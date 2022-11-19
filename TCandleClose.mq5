@@ -239,7 +239,7 @@ void ComputeRemainingTime(datetime t) {
 	// advance ahead by one second as we base on using TimeCurrent() which only return latest receipt of date/time
 	// of the quote, it doesn't return non-operating hours. So we can check for market close ahead by 1 sec from the
 	// current valid trading session minute.
-	if (!TimeToStruct(++t, time_st)) {	
+	if (!TimeToStruct(t+1, time_st)) {	
 		Print("Error TimeToStruct()");
 		return;
 	}
