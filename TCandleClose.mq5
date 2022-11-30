@@ -22,12 +22,6 @@ input bool inp_label_hidden = false;			// Show or hide the label (true = hide)
 
 bool is_prev_detected_market_close = false;
 
-// latest time will be synced every time inside OnInit() or after various events
-// so for this case we don't have to sync the time periodically as we can sync time against the broker server once
-// then count down the clock via timer, it should still be aligned. Then every now and then the event might happen,
-// and thus in turn syncs the time.
-datetime latest_sync_time;
-
 /**
   Setup main label object representing a time remaining on the main chart.
 
@@ -55,9 +49,6 @@ void SetupLabelObject(string obj_name) {
 //| Expert initialization function                                   |
 //+------------------------------------------------------------------+
 int OnInit() {
-	// use TimeCurrent() to receive last time as shown in market watch, and not performed anything on client terminal
-	latest_sync_time = TimeCurrent();
-
 	// 1 second fixed interval for update time remaining
 	SetupLabelObject(TIME_LABEL_NAME);
 	EventSetTimer(1);
@@ -337,8 +328,7 @@ void ComputeRemainingTime(datetime t) {
 }
 
 void OnTimer() {
-	latest_sync_time++;
-	ComputeRemainingTime(latest_sync_time);
+	ComputeRemainingTime(TimeCurrent());
 }
 
 int OnCalculate(const int rates_total,
