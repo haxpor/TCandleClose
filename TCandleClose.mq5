@@ -17,7 +17,7 @@
 input int inp_label_xdistance = 30;			// X distance from upper right corner
 input int inp_label_ydistance = 50;				// Y distance from upper right corner
 input int inp_label_fontsize = 23;				// Font size of the label
-input color inp_label_color = clrBlack;			// Color of the label
+input color inp_label_tint_color = clrWhite;      // Tint color for label text.
 input bool inp_label_hidden = false;			// Show or hide the label (true = hide)
 
 bool is_prev_detected_market_close = false;
@@ -34,7 +34,14 @@ void SetupLabelObject(string obj_name) {
 	ObjectSetInteger(0, obj_name, OBJPROP_XDISTANCE, inp_label_xdistance);
 	ObjectSetInteger(0, obj_name, OBJPROP_YDISTANCE, inp_label_ydistance);
 	ObjectSetInteger(0, obj_name, OBJPROP_FONTSIZE, inp_label_fontsize);
-	ObjectSetInteger(0, obj_name, OBJPROP_COLOR, inp_label_color);
+	
+	// set the color for label text to be contrast with the chart background
+	color suggested_label_txt_color = (color)ChartGetInteger(0, CHART_COLOR_BACKGROUND) ^ 0xFFFFFF;
+	if (suggested_label_txt_color == 0x000000)
+	   ObjectSetInteger(0, obj_name, OBJPROP_COLOR, inp_label_tint_color);
+	else
+	   ObjectSetInteger(0, obj_name, OBJPROP_COLOR, (color)(suggested_label_txt_color & inp_label_tint_color));
+	
 	ObjectSetInteger(0, obj_name, OBJPROP_ANCHOR, ANCHOR_RIGHT_UPPER);
 	// there is no property to show/hide an object, we use visiblity on timeframes to solve it
 	if (inp_label_hidden)
